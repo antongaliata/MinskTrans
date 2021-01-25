@@ -1,12 +1,11 @@
 import {Loader} from "@googlemaps/js-api-loader";
 import MarkerClusterer from "@googlemaps/markerclustererplus";
-import {locationsType, routesType, stoppingType} from "./App";
+import {locationsType, stoppingType} from "./Map";
+import {routesType} from "./Route";
 
 
 export const promiseDataMinskTransStops = apiRequestHandler('http://www.minsktrans.by/city/minsk/stops.txt')
 export const promiseDataMinskTransRoutes = apiRequestHandler('http://www.minsktrans.by/city/minsk/routes.txt')
-
-promiseDataMinskTransStops.then(data => console.log(data))
 
 function apiRequestHandler(link: string) {
     return (async () => {
@@ -23,15 +22,14 @@ function apiRequestHandler(link: string) {
 let directionsService: google.maps.DirectionsService
 let directionsRenderer: google.maps.DirectionsRenderer
 let map: google.maps.Map
+let render: google.maps.DirectionsRenderer
 
 export function initMap(locations: Array<locationsType>) {
 
     const loader = new Loader({
         apiKey: "AIzaSyC_B7FYGdGaaosiiHqVjXsn4JBvAvKDZpg",
-        version: "weekly",
-        libraries: ['geometry', 'places']
+        version: "weekly"
     });
-
     loader.load().then(() => {
         map = new google.maps.Map(document.getElementById("map") as HTMLElement, {
             center: {lat: 53.902214, lng: 27.561817},
@@ -41,50 +39,36 @@ export function initMap(locations: Array<locationsType>) {
         directionsRenderer = new google.maps.DirectionsRenderer()
         directionsRenderer.setMap(map);
 
-
-        // var request = {
-        //     query: 'bus transit',
-        //     fields: ['name', 'geometry']
-        // }
-        //
-        //
-        // var service = new google.maps.places.PlacesService(map);
-        //
-        // service.findPlaceFromQuery(request, function(results, status) {
-        //     if (status === google.maps.places.PlacesServiceStatus.OK) {
-        //         for (var i = 0; i < results.length; i++) {
-        //             createMarker(results[i]);
-        //         }
-        //         //@ts-ignore
-        //         map.setCenter(results[0].geometry.location);
-        //     }
-        // });
-        //
-        //
-        //
-        // function createMarker(place: google.maps.places.PlaceResult) {
-        //     return new google.maps.Marker({
-        //         map,
-        //         position: (place.geometry as google.maps.places.PlaceGeometry).location,
-        //     });
-        // }
-
-            const markers = locations.map((location: locationsType) => {
+        const markers = locations.map((location: locationsType) => {
             return new google.maps.Marker({
                 position: location
-            });
-        });
+            })
+        })
         new MarkerClusterer(map, markers, {
             imagePath:
                 "https://developers.google.com/maps/documentation/javascript/examples/markerclusterer/m",
-        });
-
-
-    });
+        })
+    })
 }
 
 
 export function calcRoute(dataRoutes: Array<routesType>, dataStopping: Array<stoppingType>) {
+    // let request = {
+    //     origin: {},
+    //     destination: {},
+    //     waypoints: [],
+    //     travelMode: google.maps.TravelMode.DRIVING
+    // }
+
+    // let service_callback2 = (result: any, status: any) => {
+    //     directionsRenderer = new google.maps.DirectionsRenderer()
+    //     if (status === 'OK') {
+    //         directionsRenderer.setDirections(result)
+    //         directionsRenderer.setMap(null)
+    //         directionsRenderer.setOptions({ suppressMarkers: false, preserveViewport: false })
+    //     }
+    // }
+    // directionsService.route(request, service_callback2);
 
     const routeId = (document.getElementById('routes') as HTMLInputElement).value
     const stoppingRoute = dataRoutes.filter((objRout: routesType) => objRout.RouteID === routeId)
@@ -106,38 +90,62 @@ export function calcRoute(dataRoutes: Array<routesType>, dataStopping: Array<sto
         index.push(stoppingRoute.indexOf(dataStopsForRoute[i].ID))
         copyStopsDataForRoute[index[i]] = dataStopsForRoute[i]
     }
-    const location: Array<locationsType> = copyStopsDataForRoute.map((objStops: stoppingType) => handlerMarkers(objStops))
+    const loc: Array<locationsType> = copyStopsDataForRoute.map((objStops: stoppingType) => handlerMarkers(objStops))
+
+    for (var i = 0, parts = [], max = 8 - 1; i < loc.length; i = i + max) {
+        parts.push(loc.slice(i, i + max + 1))
+    }
 
 
-    for (var i = 0, parts = [], max = 25 - 1; i < location.length; i = i + max)
-        parts.push(location.slice(i, i + max + 1));
+    console.log(parts.length)
+    let aa = 0
+    let service_callback = (result: any, status: any) => {
+        render = new google.maps.DirectionsRenderer()
+        aa++
+        if(aa === parts.length){
+        console.log("directionsRenderer")
+        directionsRenderer.setDirections(result)
+        directionsRenderer.setMap(map)
+        directionsRenderer.setOptions({ suppressMarkers: false, preserveViewport: false })
+    }
+        if (status === 'OK') {
+                console.log("render")
+                render.setDirections(result)
+                render.setMap(map)
+                render.setOptions({ suppressMarkers: false, preserveViewport: false })
+        }
+    }
 
 
 
+    for (let i = 0; i < parts.length; i++) {
+        let waypoints = [];
+        for (let j = 1; j < parts[i].length - 1; j++) {
+            waypoints.push({location: new google.maps.LatLng(parts[i][j].lat, parts[i][j].lng), stopover: true})
+        }
 
-    for (var i = 0; i < parts.length; i++) {
-        var waypoints = [];
-        for (var j = 1; j < parts[i].length - 1; j++)
-            waypoints.push({location: parts[i][j], stopover: true});
 
-
-
-        const request = {
+        let request = {
             origin: parts[i][0],
             destination: parts[i][parts[i].length - 1],
             waypoints: waypoints,
             travelMode: google.maps.TravelMode.DRIVING
-        };
+        }
 
-//@ts-ignore
-        directionsService.route(request,  (result, status)=>{
-            if (status === 'OK') {
-                directionsRenderer.setDirections(result);
-            }
-        })
+        directionsService.route(request, service_callback);
+
+        // directionsService.route(request, (result, status) => {
+        //      directionsRenderer
+        //     let renderer = new google.maps.DirectionsRenderer
+        //     if (status === 'OK') {
+        //         renderer.setDirections(result)
+        //         renderer.setMap(map)
+        //         renderer.setOptions({ suppressMarkers: false, preserveViewport: false })
+        //
+        //     }
+        // })
     }
 }
-
 
 export const handlerMarkers = (objStopping: stoppingType): locationsType => {
     const handlerLatLng = (LatLng: string) => {
@@ -150,64 +158,3 @@ export const handlerMarkers = (objStopping: stoppingType): locationsType => {
         lng: Number(handlerLatLng(objStopping.Lng))
     }
 }
-
-
-// const request = {
-//     origin: start,
-//     destination: end,
-//     waypoints: waypts,
-//     travelMode: google.maps.TravelMode.DRIVING
-// };
-
-
-// directionsService.route(request, function (result, status) {
-//     if (status === 'OK') {
-//         directionsRenderer.setDirections(result);
-//     }
-// });
-
-
-// let request: any
-// let ArrayRequest = locations.map((loc)=>{
-//     return request = {
-//         location: new google.maps.LatLng(loc.lat, loc.lng),
-//         radius: '10000',
-//         type: ['transit_station']
-//     }
-// })
-//
-// service = new google.maps.places.PlacesService(map);
-//
-//
-// ArrayRequest.map((request)=>{
-//     service.nearbySearch(request, callback);
-//     return null
-// })
-//
-//
-//
-//
-//
-// function createMarker(place:any) {
-//     new google.maps.Marker({
-//         map,
-//         position: place.geometry.location,
-//     });
-// }
-//
-//
-// function callback(results: any, status: any) {
-//     if (status === google.maps.places.PlacesServiceStatus.OK) {
-//         for (var i = 0; i < results.length; i++) {
-//             createMarker(results[i]);
-//         }
-//     }
-// }
-
-
-
-
-
-
-
-
