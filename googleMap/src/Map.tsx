@@ -1,7 +1,8 @@
 import React, {useState} from 'react';
 import './style.css';
 import {promiseDataMinskTransStops, initMap, handlerMarkers} from "./state";
-import Route from "./Route";
+import InformationTable from "./InformationTable";
+
 
 export type stoppingType = {
     Area: string
@@ -23,20 +24,20 @@ export type locationsType = {
 
 function Map() {
 
-    const [dataStopping, SetDataStopping] = useState<Array<stoppingType>>()
-    promiseDataMinskTransStops.then(data => SetDataStopping(data))
+    const [dataStopping, setDataStopping] = useState<Array<stoppingType>>()
+    promiseDataMinskTransStops.then(data => setDataStopping(data))
 
     let locations: Array<locationsType>
 
-    if (dataStopping) {
+    if(dataStopping) {
         locations = dataStopping.map((objStopping: stoppingType) => handlerMarkers(objStopping))
             .filter((loc: locationsType) => loc.lat !== 0 && loc.lng !== 0)
-        initMap(locations)
+        initMap( locations, dataStopping)
     }
 
-    return <div>
-        <div id={'map'}/>
-        {dataStopping && <Route stopping={dataStopping}/>}
+    return <div className={'wrapper_map_infoTable'}>
+        <div className={'wrap_map'}><div id={'map'}/></div>
+        {dataStopping && <InformationTable stopping={dataStopping}/>}
     </div>
 }
 

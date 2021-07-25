@@ -1,6 +1,8 @@
-import {calcRoute, promiseDataMinskTransRoutes} from "./state";
+import {calcRoute, callbackDataRoute, promiseDataMinskTransRoutes, TimetableRoute} from "./state";
 import React, {useState} from "react";
 import {stoppingType} from "./Map";
+import {timetableType} from "./times";
+import {tableType} from "./InformationTable";
 
 export type routesType = {
     Authority: string,
@@ -23,21 +25,35 @@ export type routesType = {
 }
 type componentRouteType = {
     stopping: Array<stoppingType>
+    setTimetableRoute: (TimetableRoute: TimetableRoute) => void
+    timetable: Array<timetableType>
+    setTable: (t: tableType) => void
 }
 
-function Route(props: componentRouteType) {
+
+const Route = React.memo(function (props: componentRouteType) {
 
     const [dataRoutes, setDataRoutes] = useState<Array<routesType>>()
-    promiseDataMinskTransRoutes.then(data => setDataRoutes(data))
+    promiseDataMinskTransRoutes.then(data => {
+        setDataRoutes(data)
+        callbackDataRoute(data)
+    })
 
-    return <div>
-        <strong>Route: </strong>
-    {dataRoutes && <select id="routes" onChange={() => calcRoute(dataRoutes, props.stopping)}>
-        {dataRoutes.map((objRoutes: routesType) => {
-            return objRoutes.RouteStops.length !== 0 && <option value={objRoutes.RouteID} key={objRoutes.RouteID}>{objRoutes.RouteName}</option>
-        })}
-    </select>}
+    return <div className={'route'}>
+        <strong>Маршруты:</strong>
+        {dataRoutes &&
+        <select className={'select_route'}
+                id="routes"
+                onChange={() => {
+                    calcRoute(dataRoutes, props.stopping, props.timetable, props.setTimetableRoute, props.setTable)
+                }} size={10}>
+
+            {dataRoutes.map((objRoutes: routesType) => {
+                return objRoutes.RouteStops.length !== 0 &&
+                    <option value={objRoutes.RouteID} key={objRoutes.RouteID}>{objRoutes.RouteName}</option>
+            })}
+        </select>}
     </div>
-}
+})
 
 export default Route;
